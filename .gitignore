@@ -1,0 +1,35 @@
+# Environment variables
+.env
+
+# Python compilation files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest / Coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.nox/
+.tox/
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env_dir/
+
+# macOS files
+.DS_Store
+
+# Data and Artifacts (optional based on whether you want to track heavy data)
+data/processed/ 
+data/raw/
+# If you want to track them, you should remove the internal data folders.
