@@ -1,70 +1,84 @@
 # Contextual Video Ad Insertion System (맥락 기반 영상 광고 자동 편성 시스템)
 
 ## 📌 프로젝트 개요
-이 프로젝트는 단순히 영상 중간에 임의로 광고를 배치하는 것을 넘어, **AI가 영상의 흐름(대사)과 시각적 요소(등장 사물)를 통섭적으로 이해하여 가장 자연스럽고 효과적인 PPL/배너 광고를 자동 편성**하는 지능형 파이프라인 시스템입니다.
+수동으로 하드코딩된 PPL 배너를 배치하는 구시대적 방식을 넘어선 **진정한 멀티모달(시각+청각) AI 융합 파이프라인**입니다. 이 시스템은 비디오의 화면 속 객체(물건)와 주인공의 대사(맥락)를 동시에 분석하여 주인공이 화를 내고 있다면 '매운 떡볶이'를, 화면에 우드 체어가 잡히면 '프리미엄 원목 가구' 배너를 가장 자연스러운 타이밍(5~10초)에 팝업 시키는 **지능형 VOD 자동 편성 시스템**입니다.
 
-### 핵심 목적
-1. **시청 경험 최적화 & 광고 효율 극대화**: 영상의 맥락과 동떨어진 무분별한 중간 광고 대신, 극중 상황(로맨스, 오피스 등)이나 장면에 등장하는 소품(가방, 카페 등)과 직접 이어지는 상품을 적절한 타이밍에 노출하여 사용자 거부감을 최소화합니다.
-2. **멀티모달 AI(Vision + Audio + LLM) 융합**: 화면 속 객체 인식(YOLO)부터 객체 디자인/재질 분석(Gemini Vision), 대사 인식(Whisper STT), 그리고 최종 광고 타임테이블 판단(Gemini LLM)에 이르기까지 일련의 과정을 100% 자동화합니다.
+### 핵심 차별점
+1. **시청 경험 최적화 (5~10초 플래시 배너)**: 씬 전체 길이에 무작정 띄우지 않습니다. AI가 맥락이 바뀌는 임팩트 있는 시점을 잡아 5~10초만 광고를 짧게 노출하여 스팸을 방지합니다.
+2. **Vision + Audio + LLM 융합**: YOLOv8(시각)으로 화면의 사물을 뽑고, Whisper(청각)로 대사를 뽑아, 최신 Gemini-Flash 모델이 "이 물건과 이 대사"에 맞는 최고의 광고 상품 스케줄표를 스스로 상상해서 짜냅니다.
+3. **원클릭 마스터 스크립트 기반**: 영상만 던져주면 복잡한 5단계 파이프라인 모듈이 톱니바퀴처럼 맞물려 통합 편성본(`final_ad_timetable.csv`)을 뱉어냅니다.
 
 ---
 
-## ⚙️ 주요 시스템 워크플로우 (Data Pipeline)
+## ⚙️ 주요 파이프라인 워크플로우 (Data Pipeline)
 
-전체 자동화 마스터 스크립트인 `run_pipeline.py`를 통해 다음 5단계가 순차적으로 실행되며 분석 시점마다 **동적 폴더**(`data/processed/{영상명}_{시간}`)에 결과가 분리 저장됩니다.
+전체 자동화 마스터 스크립트인 `run_pipeline.py`를 실행하면 아래 5단계가 순차적으로 돌아갑니다.
 
 1. **[STEP 1] 영상 전처리 (Preprocessing)**
-   - `split_media.py`: 업로드된 원본 영상을 화면 전환(Scene) 단위로 분할(scenedetect)하고, 오디오(대사) 포맷을 분리 추출합니다.
+   - `split_media.py`: 영상을 화면 전환(Scene) 단위로 분할(scenedetect)하고, 오디오 파일(`.wav`)을 분리 추출합니다.
 
-2. **[STEP 2] 프레임별 객체 인식 (YOLO Vision)**
-   - `vision_analyzer.py`: 분할된 각 씬(Scene)에서 YOLO 모델을 이용해 광고 가능한 사물(가방, 의자, 노트북 등)을 감지하고, 해당 객체가 가장 크게/선명하게 잡힌 프레임을 크롭(Crop)하여 저장합니다.
+2. **[STEP 2] 프레임별 타겟 사물 인식 (YOLO Vision)**
+   - `vision_analyzer.py`: 분할된 씬에서 YOLOv8 모델을 이용해 광고 가능한 PPL 사물(가방, 의자 등)을 감지하고 해당 프레임을 크롭(Crop) 저장합니다.
 
-3. **[STEP 3] 객체별 키워드 속성 추출 (Gemini Vision)**
-   - `gemini_matcher.py`: YOLO가 찾은 사물 크롭 이미지를 Gemini API(Vision)에 전달하여, 상품의 "대표 색상, 주요 재질, 디자인/스타일" 같은 세부 속성 키워드를 추출합니다.
+3. **[STEP 3] 시각 사물의 세부 디자인 추출 (Gemini Vision)**
+   - `gemini_matcher.py`: 크롭된 사물 이미지를 Gemini Vision API에 던져 상품의 "대표 색상, 주요 재질, 스타일" 같은 디테일 키워드(`ad_recommendations.csv`)를 뽑아냅니다.
 
-4. **[STEP 4] 대사 텍스트 추출 (Whisper STT Audio)**
-   - `audio_analyzer.py`: 영상에서 추출된 오디오 파일(.wav)을 Whisper 모델에 넣어 타임라인별 한국어 대사 텍스트(STT)를 추출합니다.
+4. **[STEP 4] 원본 대사 텍스트 추출 (Whisper STT Audio)**
+   - `audio_analyzer.py`: 오디오 파일(.wav)을 Whisper 모델에 넣어 타임라인별 한국어 대사 텍스트(`transcript.csv`)를 완벽하게 추출합니다.
 
-5. **[STEP 5] 맥락+사물 융합 최종 타임테이블 제작 (Gemini LLM)**
-   - `timetable_generator.py`: 추출된 '씬별 시각(Vision) 속성 데이터'와 '타임라인별 대사(Audio) 트랜스크립트'를 한 번에 Gemini LLM에 전달하여, 영상의 맥락을 분석하고 어떤 시간에 어떤 형태의 광고(배너, 팝업 등)를 띄우는 것이 가장 자연스러운지 최종 `final_ad_timetable.csv`를 생성합니다.
-
----
-
-## 🚀 기술 스택 및 차별점 (Core Strengths)
-
-- **Vision**: `YOLOv8` (객체 인식), `Gemini Vision API` (객체 디테일 속성 분석)
-- **Audio / NLP**: `OpenAI Whisper` (음성 인식/ASR)
-- **LLM / Context**: `Gemini Flash API` (멀티모달 융합 및 타임테이블 스케줄링)
-- **Media Processing**: `scenedetect`, `moviepy`, `OpenCV`
-- **Output Management**: 매 분석마다 `데이터/시간` 기반의 고유한 결과 폴더 생성을 통해 멀티태스킹 파이프라인 관리
-
-단순한 키워드 매칭이 아니라, 영상 전체의 "분위기(Context)"와 "화면 속 상품(Vision)"이 결합된 종합 광고 편성 AI 기술이라는 점이 가장 큰 차별점입니다.
+5. **[STEP 5] 맥락+사물 융합 스케줄링 (Gemini LLM Timetable)**
+   - `timetable_generator.py`: '시각 키워드'와 '오디오 대사'를 하나로 묶어 Gemini에게 줍니다. "화면 속 우드 체어와 비자금 은닉 대사에 가장 알맞은 광고를 추천해!" 라고 지시해 최종 편성표(`final_ad_timetable.csv`)를 생성합니다.
 
 ---
 
-## 📂 폴더 구조 및 모듈 안내
+## 🚀 필수 환경 설정 (Getting Started)
+
+### 1. API 키 발급 및 보안 설정
+이 프로젝트는 Gemini API를 백본으로 사용합니다. 깃허브 해킹 방지를 위해 `.env` 파일에 발급받은 키를 등록해야 합니다.
+
+프로젝트 최상단 루트 디렉토리에 `.env` 파일을 만들고 아래 코드를 입력하세요.
+```env
+GEMINI_API_KEY=AIzaSy_여러분의_비밀_API_키를_여기에_붙여넣으세요
+```
+
+### 2. `.gitignore` 확인
+대용량 멀티미디어 파일과 보안 파일이 올라가지 않도록 이미 `.gitignore`가 완벽하게 구성되어 있습니다 (`.env`, `*.mp4`, `*.wav`).
+
+---
+
+## 🛠 단 1줄로 실행하는 방법 (How to Run)
+
+터미널에서 원클릭 마스터 스크립트 명령어를 실행하면 끝납니다!
+```bash
+# 기본 샘플 영상(SampleVideo.mp4)으로 테스트할 때
+python run_pipeline.py          
+
+# 새로운 드라마/유튜브 영상으로 테스트할 때
+python run_pipeline.py 새로운_다운로드_영상.mp4 
+```
+
+**✅ 결과물 저장 위치**
+분석이 끝나면 덮어쓰기 방지를 위해 `data/processed/{영상파일명_현재날짜시간}/` 이름으로 아주 깔끔한 독립 폴더가 생성되며, 그 내부에 모든 결과 CSV와 크롭 캡처 사진들이 보관됩니다!
+
+---
+
+## 📂 프로젝트 구조 (Directory Structure)
 
 ```text
 PROJECT_2/
-├── README.md              # 프로젝트 소개 (현재 파일)
-├── run_pipeline.py        # [마스터 파일] 전체 파이프라인 1~5단계 순차 실행 스크립트
-├── data/                  # 데이터 저장소
-│   └── processed/         # 처리된 비디오/오디오/분석 결과가 {비디오명}_{타임스탬프} 폴더 단위로 누적
-├── src/                   # 메인 소스코드
-│   ├── preprocessing/     # 비디오 분할 및 오디오 추출 모듈 (split_media.py)
-│   └── analysis/          # 핵심 AI 분석 로직
-│       ├── vision_analyzer.py       # (STEP 2) YOLO 기반 객체 크롭
-│       ├── gemini_matcher.py        # (STEP 3) Gemini Vision 키워드 추출
-│       ├── audio_analyzer.py        # (STEP 4) Whisper STT 음성 인식
-│       └── timetable_generator.py   # (STEP 5) 멀티모달 최종 편성 스케줄링
-└── SampleVideo.mp4        # 테스트용 메인 영상 파일 (기본값)
+├── run_pipeline.py        # [마스터 봇] 파이프라인 원클릭 실행 스크립트
+├── .env                   # [보안] 개인 API 키 보관소 (숨김 파일)
+├── .gitignore             # [보안] 대용량 미디어 및 API 키 GitHub 업로드 방지
+├── README.md              # 프로젝트 가이드
+│
+├── data/                  # [결과물] 분석 데이터 저장소
+│   └── processed/         # 📁 생성된 타임스탬프 고유 폴더 (예: SampleVideo_20260304_153839)
+│       ├── audio/             # 오디오 및 STT(transcript.csv) 저장
+│       ├── scenes/            # 분할된 클립 영상 모음
+│       ├── vision_results/    # 크롭된 캡처 사진들 및 (ad_recommendations.csv)
+│       └── final_ad_timetable.csv  # 🎉 [최종 결과물] 광고 배치 스케줄 
+│
+└── src/                   # 메인 소스코드 (Modular)
+    ├── preprocessing/     # 비디오/오디오 분리 모듈
+    └── analysis/          # YOLO / Whisper / Gemini AI 로직 모음
 ```
-
-## 🛠 실행 방법
-
-터미널에서 아래 명령을 실행하면 `SampleVideo.mp4`를 기준으로 전체 파이프라인이 자동 실행됩니다.
-```bash
-python run_pipeline.py          # 기본 영상으로 실행
-python run_pipeline.py test.mp4 # 다른 영상 지정해서 실행
-```
-모든 결과는 `data/processed/{영상명}_{생성시간}/` 폴더에 깔끔하게 자동 정리됩니다.
