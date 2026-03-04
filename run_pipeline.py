@@ -28,7 +28,12 @@ def run_contextual_ad_pipeline(video_file_path: str):
     # -------------------------------------------------------------------------
     # 결과가 저장될 내부 경로 세팅
     # -------------------------------------------------------------------------
-    PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
+    import datetime
+    video_filename = os.path.splitext(os.path.basename(video_file_path))[0]
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_folder_name = f"{video_filename}_{timestamp}"
+    
+    PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed", run_folder_name)
     AUDIO_DIR = os.path.join(PROCESSED_DIR, "audio")
     SCENE_DIR = os.path.join(PROCESSED_DIR, "scenes")
     VISION_OUT_DIR = os.path.join(PROCESSED_DIR, "vision_results")
@@ -111,7 +116,7 @@ def run_contextual_ad_pipeline(video_file_path: str):
     print("\n" + "="*60)
     print("✅ 모든 파이프라인 처리가 성공적으로 완료되었습니다!")
     print(f"👉 시각속성 결과(VISION): {final_vision_csv}")
-    print(f"👉 광고달력 결과(TIMETABLE): {final_timetable_csv}")
+    print(f"👉 광고예측 결과(TIMETABLE): {final_timetable_csv}")
     print("="*60)
 
 if __name__ == "__main__":
