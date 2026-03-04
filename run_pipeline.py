@@ -1,8 +1,8 @@
 import os
 import sys
 
-# 프로젝트의 src 폴더를 파이썬 경로에 추가하여 모듈 임포트 가능하도록 설정
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 프로젝트의 루트 폴더(run_pipeline.py가 위치한 폴더)를 BASE_DIR로 설정
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
 from src.preprocessing.split_media import extract_audio, detect_and_split_scenes
@@ -124,7 +124,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         target_video = sys.argv[1]
     else:
-        # 인자 없이 실행하면 기본 위치의 SampleVideo.mp4 실행
-        target_video = os.path.join(BASE_DIR, "SampleVideo.mp4")
+        # 인자 없이 실행하면 바탕화면의 SampleVideo.mp4 실행 (기존 테스트 위치)
+        desktop_dir = os.path.dirname(BASE_DIR)
+        target_video = os.path.join(desktop_dir, "SampleVideo.mp4")
         
     run_contextual_ad_pipeline(target_video)
