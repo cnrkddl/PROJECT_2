@@ -136,11 +136,20 @@ class VisionAnalyzer:
 
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    import os
+    processed_base = os.path.join(BASE_DIR, "data", "processed")
+    if os.path.exists(processed_base):
+        run_folders = [os.path.join(processed_base, d) for d in os.listdir(processed_base) if os.path.isdir(os.path.join(processed_base, d))]
+        latest_run = max(run_folders, key=os.path.getmtime) if run_folders else processed_base
+    else:
+        latest_run = processed_base
+
     # 테스트 씬 경로 설정
-    SCENES_DIR = os.path.join(BASE_DIR, "data", "processed", "scenes")
+    SCENES_DIR = os.path.join(latest_run, "scenes")
     
     # 분석 결과를 저장할 비전 아웃풋 디렉토리
-    VISION_OUT_DIR = os.path.join(BASE_DIR, "data", "processed", "vision_results")
+    VISION_OUT_DIR = os.path.join(latest_run, "vision_results")
     os.makedirs(VISION_OUT_DIR, exist_ok=True)
     
     # 씬 목록 중 아무거나 여러 개 테스트해보기 (다양한 씬 추가)
