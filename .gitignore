@@ -33,3 +33,7 @@ env/
 data/processed/ 
 data/raw/
 # If you want to track them, you should remove the internal data folders.
+
+# Large media files
+*.mp4
+*.wav
