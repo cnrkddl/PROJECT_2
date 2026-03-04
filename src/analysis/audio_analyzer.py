@@ -66,11 +66,19 @@ class AudioAnalyzer:
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
+    import os
+    processed_base = os.path.join(BASE_DIR, "data", "processed")
+    if os.path.exists(processed_base):
+        run_folders = [os.path.join(processed_base, d) for d in os.listdir(processed_base) if os.path.isdir(os.path.join(processed_base, d))]
+        latest_run = max(run_folders, key=os.path.getmtime) if run_folders else processed_base
+    else:
+        latest_run = processed_base
+
     # split_media.py에서 만들어둔 오디오 파일 경로
-    AUDIO_PATH = os.path.join(BASE_DIR, "data", "processed", "audio", "extracted_audio.wav")
+    AUDIO_PATH = os.path.join(latest_run, "audio", "extracted_audio.wav")
     
     # 결과를 저장할 경로
-    OUTPUT_CSV = os.path.join(BASE_DIR, "data", "processed", "audio", "transcript.csv")
+    OUTPUT_CSV = os.path.join(latest_run, "audio", "transcript.csv")
     
     analyzer = AudioAnalyzer("base") # 더 높은 정확도를 원하시면 "small" 로 변경 가능
     analyzer.extract_transcript(AUDIO_PATH, OUTPUT_CSV)
