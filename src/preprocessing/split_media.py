@@ -69,8 +69,14 @@ if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     TEST_VIDEO = os.path.join(BASE_DIR, "SampleVideo.mp4")
     
+    import datetime
+    import os
+    video_filename = os.path.splitext(os.path.basename(TEST_VIDEO))[0]
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_folder_name = f"{video_filename}_{timestamp}"
+    
     # 전처리된 결과 데이터들이 저장될 목적지 폴더 경로 설정 (data/processed/ 하위)
-    PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
+    PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed", run_folder_name)
     AUDIO_DIR = os.path.join(PROCESSED_DIR, "audio")
     SCENE_DIR = os.path.join(PROCESSED_DIR, "scenes")
     
