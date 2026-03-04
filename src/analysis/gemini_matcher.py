@@ -39,7 +39,7 @@ class GeminiAdMatcher:
         # 이미지 파일 로드 (최신 SDK 파일 업로드 방식)
         img_file = self.client.files.upload(file=image_path)
         
-        # LLM에게 지시할 프롬프트 (JSON 형태로 답변을 강제하여 파싱을 쉽게 함)
+        # LLM에게 지시할 프롬프트
         prompt = f"""
         당신은 광고 상품 추천을 위한 AI 비전 분석가입니다.
         제가 보내준 이미지는 영상 속에서 캡처한 '{object_name}' (상품) 입니다.
@@ -130,8 +130,16 @@ class GeminiAdMatcher:
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
+    import os
+    processed_base = os.path.join(BASE_DIR, "data", "processed")
+    if os.path.exists(processed_base):
+        run_folders = [os.path.join(processed_base, d) for d in os.listdir(processed_base) if os.path.isdir(os.path.join(processed_base, d))]
+        latest_run = max(run_folders, key=os.path.getmtime) if run_folders else processed_base
+    else:
+        latest_run = processed_base
+
     # YOLO에서 뽑아둔 all_scenes_candidates.csv 파일 경로
-    VISION_OUT_DIR = os.path.join(BASE_DIR, "data", "processed", "vision_results")
+    VISION_OUT_DIR = os.path.join(latest_run, "vision_results")
     candidates_csv = os.path.join(VISION_OUT_DIR, "all_scenes_candidates.csv")
     
     # 딥 다이브 매칭 결과를 저장할 최종 파일 (단일 CSV)
