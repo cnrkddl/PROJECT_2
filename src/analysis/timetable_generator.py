@@ -130,14 +130,22 @@ class DynamicTimetableGenerator:
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
+    import os
+    processed_base = os.path.join(BASE_DIR, "data", "processed")
+    if os.path.exists(processed_base):
+        run_folders = [os.path.join(processed_base, d) for d in os.listdir(processed_base) if os.path.isdir(os.path.join(processed_base, d))]
+        latest_run = max(run_folders, key=os.path.getmtime) if run_folders else processed_base
+    else:
+        latest_run = processed_base
+
     # 입력 1: 청각 (STT 텍스트)
-    TRANSCRIPT_CSV = os.path.join(BASE_DIR, "data", "processed", "audio", "transcript.csv")
+    TRANSCRIPT_CSV = os.path.join(latest_run, "audio", "transcript.csv")
     
     # 입력 2: 시각 (Vision 객체 리스트)
-    VISION_CSV = os.path.join(BASE_DIR, "data", "processed", "vision_results", "ad_recommendations.csv")
+    VISION_CSV = os.path.join(latest_run, "vision_results", "ad_recommendations.csv")
     
     # 출력: 최종 타임테이블
-    TIMETABLE_CSV = os.path.join(BASE_DIR, "data", "processed", "final_ad_timetable.csv")
+    TIMETABLE_CSV = os.path.join(latest_run, "final_ad_timetable.csv")
     
     generator = DynamicTimetableGenerator()
     generator.generate_timetable(TRANSCRIPT_CSV, VISION_CSV, TIMETABLE_CSV)
