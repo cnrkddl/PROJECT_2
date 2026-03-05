@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 
 # 프로젝트의 루트 폴더(run_pipeline.py가 위치한 폴더)를 BASE_DIR로 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,6 +47,7 @@ def run_contextual_ad_pipeline(video_file_path: str):
     # 파이프라인 파일명 지정
     output_audio = os.path.join(AUDIO_DIR, "extracted_audio.wav")
     yolo_candidates_csv = os.path.join(VISION_OUT_DIR, "all_scenes_candidates.csv")
+    scene_timestamps_csv = os.path.join(VISION_OUT_DIR, "scene_timestamps.csv")  # 씬별 시간 정보
     final_vision_csv = os.path.join(VISION_OUT_DIR, "ad_recommendations.csv")
     transcript_csv = os.path.join(AUDIO_DIR, "transcript.csv")
     final_timetable_csv = os.path.join(PROCESSED_DIR, "final_ad_timetable.csv")
@@ -55,7 +57,22 @@ def run_contextual_ad_pipeline(video_file_path: str):
     # -------------------------------------------------------------------------
     print("\n[STEP 1/5] 🎬 원본 영상 전처리 진행 중...")
     extract_audio(video_file_path, output_audio)
-    detect_and_split_scenes(video_file_path, SCENE_DIR)
+    scene_list = detect_and_split_scenes(video_file_path, SCENE_DIR)
+
+    # 씬별 시작/종료 시간을 CSV로 저장 (이후 Vision 결과와 연동하기 위해)
+    import csv as _csv
+    if scene_list:
+        with open(scene_timestamps_csv, mode='w', newline='', encoding='utf-8-sig') as f:
+            writer = _csv.DictWriter(f, fieldnames=['씬 이름', '시작 시간 (초)', '종료 시간 (초)'])
+            writer.writeheader()
+            for i, (start_time, end_time) in enumerate(scene_list, start=1):
+                scene_name = f"scene-{i:03d}"
+                writer.writerow({
+                    '씬 이름': scene_name,
+                    '시작 시간 (초)': round(start_time.get_seconds(), 2),
+                    '종료 시간 (초)': round(end_time.get_seconds(), 2)
+                })
+        print(f"  -> 씬 타임스탬프 저장 완료: {scene_timestamps_csv}")
 
     # -------------------------------------------------------------------------
     # STEP 2. 프레임별 객체 인식 (YOLO Vision)
@@ -84,13 +101,27 @@ def run_contextual_ad_pipeline(video_file_path: str):
     else:
         print("  -> 경고: 시각적 모델이 영상 내에서 광고할 만한 상품을 하나도 찾지 못했습니다.")
 
+    # ✅ 씬 파일 임시 저장 후 삭제 (저장공간 절약)
+    print("  -> 🗑️  분석 완료된 씬 파일 삭제 중...")
+    if os.path.exists(SCENE_DIR):
+        shutil.rmtree(SCENE_DIR)
+        print(f"  -> scenes 폴더 삭제 완료: {SCENE_DIR}")
+
     # -------------------------------------------------------------------------
     # STEP 3. 객체별 키워드 속성 추출 (Gemini Vision)
     # -------------------------------------------------------------------------
     print("\n[STEP 3/5] 💎 시각 객체의 세부 디자인/재질 속성 분석 중...")
     if os.path.exists(yolo_candidates_csv):
         matcher = GeminiAdMatcher()
-        matcher.process_candidates(yolo_candidates_csv, final_vision_csv)
+        matcher.process_candidates(yolo_candidates_csv, final_vision_csv, scene_timestamps_csv)
+
+        # ✅ Gemini Vision 분석 완료 후 크롭 이미지 폴더 삭제 (저장공간 절약)
+        print("  -> 🗑️  분석 완료된 크롭 이미지 삭제 중...")
+        for entry in os.listdir(VISION_OUT_DIR):
+            entry_path = os.path.join(VISION_OUT_DIR, entry)
+            if os.path.isdir(entry_path) and entry.startswith("crops_"):
+                shutil.rmtree(entry_path)
+                print(f"  -> 크롭 폴더 삭제 완료: {entry_path}")
     else:
         print("  -> YOLO 추출 결과가 없으므로 API Vision 단계를 통과합니다.")
 
