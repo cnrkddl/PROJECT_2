@@ -78,15 +78,27 @@ class GeminiAdMatcher:
             print(f"Gemini API 호출 중 오류 발생: {e}")
             return {"color": "", "material": "", "style": ""}
 
-    def process_candidates(self, candidates_csv_path: str, output_csv_path: str):
+    def process_candidates(self, candidates_csv_path: str, output_csv_path: str, scene_timestamps_csv_path: str = None):
         """
         YOLO로 추출한 기존 CSV 파일을 읽고,
         각 후보 이미지마다 Gemini (키워드 추출) 흐름을 타서
-        세부 정보가 가득 담긴 최종 하나의 CSV 파일로 내보냅니다.
+        세부 정보가 가득 담긴 최종 하나의 CSV 파일로 내보끜다.
         """
         if not os.path.exists(candidates_csv_path):
             print(f"후보군 CSV 파일을 찾을 수 없습니다: {candidates_csv_path}")
             return
+
+        # 씬 타임스탬프 로드 (씨 이름 -> (start_sec, end_sec) 딕셔너리)
+        scene_time_map = {}
+        if scene_timestamps_csv_path and os.path.exists(scene_timestamps_csv_path):
+            with open(scene_timestamps_csv_path, mode='r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    scene_time_map[row['씬 이름']] = (
+                        row['시작 시간 (초)'],
+                        row['종료 시간 (초)']
+                    )
+            print(f"  -> 씬 타임스탬프 {len(scene_time_map)}개 로드 완료")
             
         # 기존 CSV 읽기
         candidates = []
@@ -95,7 +107,7 @@ class GeminiAdMatcher:
             for row in reader:
                 candidates.append(row)
                 
-        print(f"총 {len(candidates)}개의 광고 후보의 세부 속성을 분석합니다...")
+        print(f"잘 {len(candidates)}개의 광고 후보의 세부 속성을 분석합니다...")
         
         final_recommendations = []
         
@@ -105,12 +117,17 @@ class GeminiAdMatcher:
             img_path = cand.get('크롭 이미지 경로')
             original_score = cand.get('광고 적합도 점수')
             
+            # 씬 이름에서 시작/종료 시간 조회
+            start_sec, end_sec = scene_time_map.get(scene, ('', ''))
+            
             # 1. Gemini 비전 분석으로 "디자인/재질/색상" 키워드 추출
             gemini_keywords = self.extract_keywords_from_image(img_path, obj_name)
             
-            # 2. 분석 결과를 리스트에 저장
+            # 2. 분석 결과를 리스트에 저장 (시작/종료 시간 포함)
             final_recommendations.append({
                 '씬 이름 (Scene)': scene,
+                '시작 시간 (초)': start_sec,
+                '종료 시간 (초)': end_sec,
                 '상품 종류 (Object)': obj_name,
                 '광고 적합도 점수': original_score,
                 '대표 색상 (Color)': gemini_keywords.get('color', ''),
