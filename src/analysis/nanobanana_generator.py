@@ -80,14 +80,14 @@ class NanoBananaGenerator:
                     continue
                     
                 # 이미지 생성을 위한 고해상도 영문 프롬프트 엔지니어링 
-                # 드라마 배경 없이, 실제 합성용(Overlay)으로 쓸 수 있는 깔끔한 누끼/솔리드 배경의 상품 컷만 요청
+                # 드라마 씬이나 사람은 배제하되, '고급스러운 광고판' 느낌이 나도록 그래픽적 요소(그라데이션, 기하학적 도형, 스튜디오 라이팅)를 포함한 세련된 배너 요청
                 prompt = (
-                    f"A clean, isolated product photography shot of '{product_name}'. "
-                    f"This image will be used as a {ad_format} overlay on a video. "
-                    f"STRICTLY NO BACKGROUND SCENES, NO PEOPLE, NO DRAMA CONTEXT IN THE BACKGROUND. "
-                    f"Place the product on a pure, solid white studio background. "
-                    f"The styling and mood of the product itself should subtly match this vibe: {context} ({reason}). "
-                    f"High-end commercial studio lighting, ultra-detailed, textless, 4k resolution."
+                    f"A high-end digital commercial advertisement banner for '{product_name}'. "
+                    f"This image is designed as a {ad_format}. "
+                    f"Place the product on a highly aesthetic, modern advertising background (e.g., sleek gradients, minimalist geometric shapes, or premium studio surface). "
+                    f"STRICTLY NO REALISTIC DRAMA SCENES, NO REAL ROOMS, AND NO PEOPLE in the background. "
+                    f"The color palette and styling must match this vibe: {context} ({reason}). "
+                    f"Dynamic commercial studio lighting, ultra-detailed product photography, textless, 4k resolution, looks like a real premium ad."
                 )
                 
                 # 파일명 생성: ad_banner_01_맥심커피.png 형태 (Pillow/as_image 은 PNG 저장 지원)
