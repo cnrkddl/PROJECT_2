@@ -10,6 +10,7 @@ from src.analysis.vision_analyzer import VisionAnalyzer
 from src.analysis.gemini_matcher import GeminiAdMatcher
 from src.analysis.audio_analyzer import AudioAnalyzer
 from src.analysis.timetable_generator import DynamicTimetableGenerator
+from src.analysis.nanobanana_generator import NanoBananaGenerator
 
 def run_contextual_ad_pipeline(video_file_path: str):
     """
@@ -106,12 +107,23 @@ def run_contextual_ad_pipeline(video_file_path: str):
     # -------------------------------------------------------------------------
     # STEP 5. 맥락+사물 융합 최종 광고 타임테이블 제작 (Gemini LLM)
     # -------------------------------------------------------------------------
-    print("\n[STEP 5/5] 🧠 멀티모달(대사+시각) 융합 최종 타임테이블 편성 중...")
+    print("\n[STEP 5/6] 🧠 멀티모달(대사+시각) 융합 최종 타임테이블 편성 중...")
     if os.path.exists(transcript_csv):
         table_generator = DynamicTimetableGenerator()
         table_generator.generate_timetable(transcript_csv, final_vision_csv, final_timetable_csv)
     else:
         print("  -> 정리된 대사 텍스트(STT)가 없으므로 타임테이블 스케줄링을 건너뜁니다.")
+
+    # -------------------------------------------------------------------------
+    # STEP 6. 최종 배너 이미지 자동 렌더링 (Nano Banana)
+    # -------------------------------------------------------------------------
+    print("\n[STEP 6/6] 🍌 나노바나나 배너 이미지 자동 렌더링 중...")
+    generated_images_dir = os.path.join(PROCESSED_DIR, "generated_ad_banners")
+    if os.path.exists(final_timetable_csv):
+        nano_generator = NanoBananaGenerator()
+        nano_generator.process_timetable(final_timetable_csv, generated_images_dir)
+    else:
+        print("  -> 최종 타임테이블이 없으므로 나노바나나 이미지 생성을 건너뜁니다.")
 
     print("\n" + "="*60)
     print("✅ 모든 파이프라인 처리가 성공적으로 완료되었습니다!")
