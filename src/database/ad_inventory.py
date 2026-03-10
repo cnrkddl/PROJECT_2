@@ -5,13 +5,17 @@ timetable_generator.py에서 코사인 유사도 매칭에 사용할
 ad_inventory 테이블의 광고 목록을 가져오는 역할을 담당합니다.
 """
 
+import os
 import psycopg2
+from dotenv import load_dotenv
 from typing import List, Dict
 
+load_dotenv()
+
 # ──────────────────────────────────────────────────────────
-# DB 연결 정보
+# DB 연결 정보 — .env 파일의 DB_DSN 환경변수에서 로드
 # ──────────────────────────────────────────────────────────
-DB_DSN = "postgresql://DB_USER:DB_PASSWORD@DB_HOST:DB_PORT/DB_NAME"
+DB_DSN = os.environ.get("DB_DSN")
 
 
 def load_ad_inventory() -> List[Dict]:
