@@ -1,10 +1,7 @@
 """
 timetable_generator.py — 광고 타임테이블 생성 모듈
 
-[역할 변경 이력]
-- 구(AS-IS): Gemini LLM에게 전체 대사와 사물 정보를 주고 광고를 "알아서" 추천하게 함
-             → Gemini가 임의로 광고를 상상해서 추천하는 문제 (실제 ad_inventory 무관)
-- 신(TO-BE): 실제 DB의 ad_inventory.ad_name과 장면 설명을 코사인 유사도로 매칭
+실제 DB의 ad_inventory.ad_name과 장면 설명을 코사인 유사도로 매칭
              → 반드시 실존하는 광고만 추천, 유사도 점수로 매칭 근거 명시
 
 [파이프라인 위치]
@@ -20,19 +17,15 @@ import os
 import csv
 import librosa
 import numpy as np
-import psycopg2
 from dotenv import load_dotenv
 from google import genai
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict, Tuple
 
+from src.database.ad_inventory import load_ad_inventory
+
 load_dotenv()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
-# ──────────────────────────────────────────────────────────
-# DB 연결 정보
-# ──────────────────────────────────────────────────────────
-DB_DSN = "postgresql://DB_USER:DB_PASSWORD@DB_HOST:DB_PORT/DB_NAME"
 
 # ──────────────────────────────────────────────────────────
 # 타이밍 기준값
@@ -60,39 +53,6 @@ class AdTimetableGenerator:
     def __init__(self):
         self.client = genai.Client(api_key=GEMINI_API_KEY)
         self.embedding_model = 'models/text-embedding-004'
-
-    # ──────────────────────────────────────────────────────
-    # [1단계] DB에서 광고 목록 로드
-    # ──────────────────────────────────────────────────────
-    def _load_ad_inventory(self) -> List[Dict]:
-        """
-        PostgreSQL ad_inventory 테이블에서 광고 목록을 가져옵니다.
-        ad_name이 코사인 유사도 매칭의 기준 텍스트로 사용됩니다.
-        예시 ad_name: "CJ제일제당 - 햇반", "G마켓 - H.O.T. 스타일"
-        """
-        ads = []
-        try:
-            conn = psycopg2.connect(DB_DSN)
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT ad_id, ad_name, ad_type, resource_path, duration_sec
-                FROM ad_inventory
-                WHERE ad_name IS NOT NULL AND ad_name != ''
-            """)
-            for row in cur.fetchall():
-                ads.append({
-                    'ad_id':        row[0],
-                    'ad_name':      row[1],
-                    'ad_type':      row[2],
-                    'resource_path': row[3],
-                    'duration_sec': row[4],
-                })
-            cur.close()
-            conn.close()
-            print(f"  -> DB에서 광고 {len(ads)}개 로드 완료")
-        except Exception as e:
-            print(f"  [DB 오류] {e}")
-        return ads
 
     # ──────────────────────────────────────────────────────
     # [2단계] Gemini 임베딩 생성
@@ -244,8 +204,9 @@ class AdTimetableGenerator:
         """
 
         # ── 1단계: DB 광고 목록 로드 ─────────────────────
+        # DB 연결 로직은 src/database/ad_inventory.py에서 관리
         print("\n[STEP 5-1] DB에서 광고 목록 로드 중...")
-        ads = self._load_ad_inventory()
+        ads = load_ad_inventory()
         if not ads:
             print("  -> 광고 목록이 비어있어 타임테이블 생성을 중단합니다.")
             return
