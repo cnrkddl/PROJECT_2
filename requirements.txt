@@ -1,0 +1,29 @@
+# 영상 처리
+opencv-python
+scenedetect[opencv]
+
+# 객체 탐지 (YOLO-World)
+ultralytics
+
+# Gemini AI (Vision + 임베딩)
+google-genai
+
+# 음성 인식 (Whisper STT)
+openai-whisper
+torch
+
+# 오디오 분석 (묵음 감지)
+librosa
+
+# 머신러닝 (코사인 유사도)
+scikit-learn
+numpy
+
+# DB 연결 (PostgreSQL)
+psycopg2-binary
+
+# 웹 서버 (Flask)
+flask
+
+# 환경변수
+python-dotenv

@@ -101,9 +101,7 @@ GEMINI_API_KEY=발급받은_Gemini_API_키
 
 ### 2. 의존 패키지 설치
 ```bash
-pip install ultralytics google-genai psycopg2-binary librosa scikit-learn \
-            python-dotenv opencv-python scenedetect openai-whisper flask \
-            numpy torch
+pip install -r requirements.txt
 ```
 
 ---
