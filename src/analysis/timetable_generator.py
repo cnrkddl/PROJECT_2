@@ -52,7 +52,17 @@ class AdTimetableGenerator:
 
     def __init__(self):
         self.client = genai.Client(api_key=GEMINI_API_KEY)
-        self.embedding_model = 'models/text-embedding-004'
+        self.embedding_model = 'models/gemini-embedding-001'
+
+    @staticmethod
+    def _fmt_time(sec: float) -> str:
+        """초 → HH:MM:SS 또는 MM:SS 포맷으로 변환"""
+        h = int(sec) // 3600
+        m = (int(sec) % 3600) // 60
+        s = int(sec) % 60
+        if h > 0:
+            return f"{h:02d}:{m:02d}:{s:02d}"
+        return f"{m:02d}:{s:02d}"
 
     # ──────────────────────────────────────────────────────
     # [2단계] Gemini 임베딩 생성
@@ -278,7 +288,7 @@ class AdTimetableGenerator:
 
             # 조건 미달 시 이 씬은 타임테이블에서 제외
             if cond_count < MIN_CONDITIONS:
-                print(f"  [SKIP] {scene_name} ({timestamp_sec}s) — 조건 {cond_count}/{MIN_CONDITIONS}: {cond_names}")
+                print(f"  [SKIP] {scene_name} ({self._fmt_time(timestamp_sec)}) — 조건 {cond_count}/{MIN_CONDITIONS}: {cond_names}")
                 continue
 
             # 코사인 유사도 최상위 광고 선택
@@ -294,12 +304,14 @@ class AdTimetableGenerator:
             ad_duration   = float(best_ad.get('duration_sec') or 10.0)
             ad_end_sec    = round(timestamp_sec + ad_duration, 2)
 
-            print(f"  ✅ {scene_name} ({timestamp_sec}s) | 조건: {cond_names} | "
+            print(f"  ✅ {scene_name} ({self._fmt_time(timestamp_sec)}) | 조건: {cond_names} | "
                   f"유사도: {best_sim:.3f} | 광고: {best_ad['ad_name']}")
 
             timetable.append({
                 '광고 진입 시간 (초)':   timestamp_sec,
                 '광고 종료 시간 (초)':   ad_end_sec,
+                '광고 진입 시간':         self._fmt_time(timestamp_sec),
+                '광고 종료 시간':         self._fmt_time(ad_end_sec),
                 '씬 이름':               scene_name,
                 '장면 설명 요약':         scene_desc[:80] + ('...' if len(scene_desc) > 80 else ''),
                 '매칭 광고 ID':           best_ad['ad_id'],
@@ -322,7 +334,7 @@ class AdTimetableGenerator:
 
             # 터미널 요약 출력
             for entry in timetable[:5]:
-                print(f"  ⏰ {entry['광고 진입 시간 (초)']}s ~ {entry['광고 종료 시간 (초)']}s"
+                print(f"  ⏰ {entry['광고 진입 시간']} ~ {entry['광고 종료 시간']}"
                       f" | [{entry['충족 타이밍 조건']}]"
                       f" | {entry['광고 이름']} (유사도: {entry['코사인 유사도']})")
         else:
