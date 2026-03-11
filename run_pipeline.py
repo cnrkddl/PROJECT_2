@@ -71,12 +71,14 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     # — STEP 2에서 정확한 타임스탬프 계산에 사용
     # — STEP 5에서 씬 전환 타이밍 조건 체크에 사용
     if scene_list:
+        # scenedetect는 총 씬 수 기준으로 자리수를 자동 결정 (1000개↑ → 4자리)
+        digits = len(str(len(scene_list)))
         with open(scene_timestamps_csv, mode='w', newline='', encoding='utf-8-sig') as f:
             writer = _csv.DictWriter(f, fieldnames=['씬 이름', '시작 시간 (초)', '종료 시간 (초)'])
             writer.writeheader()
             for i, (start_time, end_time) in enumerate(scene_list, start=1):
                 writer.writerow({
-                    '씬 이름':        f"scene-{i:03d}",
+                    '씬 이름':        f"scene-{i:0{digits}d}",
                     '시작 시간 (초)': round(start_time.get_seconds(), 2),
                     '종료 시간 (초)': round(end_time.get_seconds(), 2),
                 })
@@ -95,8 +97,9 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     # — analyze_scene의 scene_start_sec 파라미터에 전달하여 정확한 타임스탬프 계산
     scene_start_sec_map = {}
     if scene_list:
+        digits = len(str(len(scene_list)))
         for i, (start_time, _) in enumerate(scene_list, start=1):
-            scene_name = f"scene-{i:03d}"
+            scene_name = f"scene-{i:0{digits}d}"
             scene_start_sec_map[scene_name] = round(start_time.get_seconds(), 2)
 
     for scene_file in scene_files:
