@@ -13,10 +13,9 @@ from src.analysis.vision_analyzer import VisionAnalyzer
 from src.analysis.gemini_matcher import GeminiSceneDescriber
 from src.analysis.audio_analyzer import AudioAnalyzer
 from src.analysis.timetable_generator import AdTimetableGenerator
-from src.analysis.nanobanana_generator import NanoBananaGenerator
 
 
-def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = False):
+def run_contextual_ad_pipeline(video_file_path: str):
     """
     전체 파이프라인을 순서대로 자동 실행하는 마스터 스크립트입니다.
 
@@ -27,7 +26,7 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     STEP 4: 대사 추출  — Whisper STT로 음성을 텍스트로 변환
     STEP 5: 광고 매칭  — Gemini 임베딩 + 코사인 유사도로 ad_inventory 광고 매칭
                          librosa 묵음 감지 + 씬 전환 타이밍으로 삽입 시점 결정
-    STEP 6: 배너 생성  — 나노바나나로 광고 배너 이미지 렌더링
+                         → webapp이 final_ad_timetable.csv의 ad_id로 DB에서 실제 광고 에셋을 직접 조회
     """
     if not os.path.exists(video_file_path):
         print(f"❌ 오류: 입력하신 비디오 파일을 찾을 수 없습니다: {video_file_path}")
@@ -63,7 +62,7 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     # ─────────────────────────────────────────────────────────
     # STEP 1. 영상 전처리 — 오디오 추출 + 씬 분할
     # ─────────────────────────────────────────────────────────
-    print("\n[STEP 1/6] 🎬 원본 영상 전처리 진행 중...")
+    print("\n[STEP 1/5] 🎬 원본 영상 전처리 진행 중...")
     extract_audio(video_file_path, output_audio)
     scene_list = detect_and_split_scenes(video_file_path, SCENE_DIR)
 
@@ -87,7 +86,7 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     # ─────────────────────────────────────────────────────────
     # STEP 2. 객체 탐지 — YOLO-World
     # ─────────────────────────────────────────────────────────
-    print("\n[STEP 2/6] 👁️  YOLO-World 객체 탐지 중...")
+    print("\n[STEP 2/5] 👁️  YOLO-World 객체 탐지 중...")
     analyzer = VisionAnalyzer()
     all_candidates = []
 
@@ -136,7 +135,7 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     # ─────────────────────────────────────────────────────────
     # 씬 대표 크롭 이미지를 Gemini에 전달하여 자연어 장면 설명 텍스트를 생성합니다.
     # 생성된 텍스트는 STEP 5에서 ad_inventory.ad_name과 코사인 유사도 매칭에 사용됩니다.
-    print("\n[STEP 3/6] 💬 Gemini Vision 장면 설명 생성 중...")
+    print("\n[STEP 3/5] 💬 Gemini Vision 장면 설명 생성 중...")
     if os.path.exists(yolo_candidates_csv):
         describer = GeminiSceneDescriber()
         describer.process_candidates(yolo_candidates_csv, scene_descriptions_csv)
@@ -154,7 +153,7 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     # ─────────────────────────────────────────────────────────
     # STEP 4. 대사 추출 — Whisper STT
     # ─────────────────────────────────────────────────────────
-    print("\n[STEP 4/6] 🗣️  Whisper STT 대사 추출 중...")
+    print("\n[STEP 4/5] 🗣️  Whisper STT 대사 추출 중...")
     if os.path.exists(output_audio):
         audio_analyzer = AudioAnalyzer("base")
         audio_analyzer.extract_transcript(output_audio, transcript_csv)
@@ -166,7 +165,7 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     # ─────────────────────────────────────────────────────────
     # 1) Gemini 임베딩 + 코사인 유사도로 ad_inventory DB에서 최적 광고 매칭
     # 2) librosa 묵음 감지 + 씬 전환 타이밍 3조건으로 삽입 시점 결정
-    print("\n[STEP 5/6] 🧠 광고 매칭 및 타임테이블 편성 중...")
+    print("\n[STEP 5/5] 🧠 광고 매칭 및 타임테이블 편성 중...")
     if os.path.exists(scene_descriptions_csv):
         table_generator = AdTimetableGenerator()
         table_generator.generate_timetable(
@@ -179,20 +178,6 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
     else:
         print("  -> 장면 설명 파일이 없으므로 타임테이블 생성을 건너뜁니다.")
 
-    # ─────────────────────────────────────────────────────────
-    # STEP 6. 배너 이미지 생성 — 나노바나나
-    # ─────────────────────────────────────────────────────────
-    if skip_ad_generation:
-        print("\n[SKIP] --skip-ad 옵션에 의해 STEP 6(배너 이미지 생성)를 건너뜁니다.")
-    else:
-        print("\n[STEP 6/6] 🍌 나노바나나 배너 이미지 렌더링 중...")
-        generated_images_dir = os.path.join(PROCESSED_DIR, "generated_ad_banners")
-        if os.path.exists(final_timetable_csv):
-            nano_generator = NanoBananaGenerator()
-            nano_generator.process_timetable(final_timetable_csv, generated_images_dir)
-        else:
-            print("  -> 최종 타임테이블이 없으므로 배너 이미지 생성을 건너뜁니다.")
-
     print("\n" + "="*60)
     print("✅ 모든 파이프라인 처리가 완료되었습니다!")
     print(f"👉 장면 설명 결과: {scene_descriptions_csv}")
@@ -201,18 +186,11 @@ def run_contextual_ad_pipeline(video_file_path: str, skip_ad_generation: bool = 
 
 
 if __name__ == "__main__":
-    target_video = None
-    skip_ad = False
-
-    for arg in sys.argv[1:]:
-        if arg == "--skip-ad":
-            skip_ad = True
-        else:
-            target_video = arg
+    target_video = sys.argv[1] if len(sys.argv) > 1 else None
 
     if not target_video:
         # 인자 없이 실행하면 바탕화면의 SampleVideo.mp4 실행 (기본 테스트 위치)
         desktop_dir = os.path.dirname(BASE_DIR)
         target_video = os.path.join(desktop_dir, "SampleVideo.mp4")
 
-    run_contextual_ad_pipeline(target_video, skip_ad_generation=skip_ad)
+    run_contextual_ad_pipeline(target_video)
