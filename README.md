@@ -143,7 +143,6 @@ PROJECT_2/
 │           │   ├── all_scenes_candidates.csv    # YOLO-World 탐지 결과
 │           │   ├── scene_timestamps.csv          # 씬별 시작/종료 시간
 │           │   └── scene_descriptions.csv        # Gemini 장면 설명 + 오브젝트 밀도
-│           ├── generated_ad_banners/             # 나노바나나 배너 이미지
 │           └── final_ad_timetable.csv            # 🎉 최종 광고 타임테이블
 │
 └── src/
