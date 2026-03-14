@@ -1,80 +1,98 @@
 import os
 import csv
 import json
-from flask import Flask, render_template, send_from_directory, jsonify
+import psycopg2
+from flask import Flask, render_template, send_file, jsonify
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
-# Base paths relative to the project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DATA_DIR = os.path.join(BASE_DIR, 'data', 'processed', 'SampleVideo_20260305_171923')
-BANNERS_DIR = os.path.join(DATA_DIR, 'generated_ad_banners')
-VIDEO_PATH = os.path.join(DATA_DIR, 'SampleVideo.mp4')
-TIMETABLE_CSV = os.path.join(DATA_DIR, 'final_ad_timetable.csv')
+DB_DSN = os.environ.get("DB_DSN")
+
+
+def get_latest_run_dir():
+    processed_base = os.path.join(BASE_DIR, 'data', 'processed')
+    if not os.path.exists(processed_base):
+        return None
+    run_folders = [
+        os.path.join(processed_base, d)
+        for d in os.listdir(processed_base)
+        if os.path.isdir(os.path.join(processed_base, d))
+    ]
+    return max(run_folders, key=os.path.getmtime) if run_folders else None
+
+
+def fetch_ad_asset(ad_id: str) -> dict | None:
+    """DB에서 ad_id로 광고 에셋 정보를 조회합니다."""
+    try:
+        conn = psycopg2.connect(DB_DSN)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT resource_path, ad_type FROM ad_inventory WHERE ad_id = %s",
+            (ad_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if row:
+            return {'resource_path': row[0], 'ad_type': row[1]}
+    except Exception as e:
+        print(f"[DB 오류] {e}")
+    return None
+
 
 def parse_timetable():
+    run_dir = get_latest_run_dir()
+    if not run_dir:
+        return []
+
+    timetable_csv = os.path.join(run_dir, 'final_ad_timetable.csv')
+    if not os.path.exists(timetable_csv):
+        return []
+
     timetable = []
-    if not os.path.exists(TIMETABLE_CSV):
-        return timetable
-    
-    with open(TIMETABLE_CSV, mode='r', encoding='utf-8-sig') as f:
+    with open(timetable_csv, mode='r', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            start_time_str = row.get('광고 진입 시간 (초)', '').replace('s', '').strip()
-            end_time_str = row.get('광고 종료 시간 (초)', '').replace('s', '').strip()
-            item_name = row.get('추천 광고 상품명', '').strip()
-            ui_type = row.get('추천 UI/UX 노출 형태', '').strip()
-            
-            if not start_time_str or not end_time_str or not item_name:
-                continue
-                
-            start_time = float(start_time_str)
-            end_time = float(end_time_str)
-            
-            # Find the corresponding banner image
-            banner_image = None
-            if os.path.exists(BANNERS_DIR):
-                for filename in os.listdir(BANNERS_DIR):
-                    if filename.endswith(".png"):
-                        # Basic matching logic: checking if part of the recommendation title is in the filename
-                        # Since the filename is generated like: ad_banner_01_프리미엄_인체공학_사무용_의자.png
-                        # We can just extract the name part or check for substring
-                        safe_name = item_name.replace(" ", "_")
-                        safe_name = safe_name.replace("/", "")
-                        if safe_name in filename or item_name in filename.replace("_", " "):
-                            banner_image = filename
-                            break
-            
-            reason = row.get('광고 매칭 사유', '').strip()
+            ad_id = row.get('매칭 광고 ID', '').strip()
+            asset = fetch_ad_asset(ad_id) if ad_id else None
 
-            if banner_image:
-                print(f"Matched banner: {banner_image} for item: {item_name}")
-                timetable.append({
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'item_name': item_name,
-                    'ui_type': ui_type,
-                    'reason': reason,
-                    'image_url': f'/banners/{banner_image}'
-                })
-            else:
-                print(f"WARNING: Could not find banner for {item_name}")
-                
-    print(f"Total banners matched: {len(timetable)}")
+            timetable.append({
+                'start_time': float(row.get('광고 진입 시간 (초)', 0)),
+                'end_time':   float(row.get('광고 종료 시간 (초)', 0)),
+                'ad_id':      ad_id,
+                'ad_name':    row.get('광고 이름', '').strip(),
+                'ad_type':    row.get('광고 유형', '').strip(),
+                'similarity': row.get('코사인 유사도', ''),
+                'scene_desc': row.get('장면 설명 요약', '').strip(),
+                'asset_url':  f'/ad-asset/{ad_id}' if asset else None,
+            })
+
+    print(f"Total ads in timetable: {len(timetable)}")
     return timetable
+
 
 @app.route('/')
 def index():
     timetable = parse_timetable()
     return render_template('index.html', timetable_json=json.dumps(timetable))
 
+
 @app.route('/video')
 def serve_video():
-    return send_from_directory('/Users/bagjimin/Desktop', 'sampleVideo.mp4')
+    return send_file('/Users/bagjimin/Desktop/sampleVideo.mp4')
 
-@app.route('/banners/<filename>')
-def serve_banner(filename):
-    return send_from_directory(BANNERS_DIR, filename)
+
+@app.route('/ad-asset/<ad_id>')
+def serve_ad_asset(ad_id):
+    asset = fetch_ad_asset(ad_id)
+    if asset and asset['resource_path'] and os.path.exists(asset['resource_path']):
+        return send_file(asset['resource_path'])
+    return jsonify({'error': 'Asset not found'}), 404
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
